@@ -55,3 +55,10 @@
 - [x] Hide Admin button — only show for owner
 - [x] Lock /admin route to owner only (server-side check with OWNER_OPEN_ID)
 - [x] Remove login redirect from admin panel — show "Access Denied" instead
+
+## Current Work
+- [x] Create logo with black background
+- [x] Add video file upload to admin panel
+- [x] Add video storage and serving
+- [x] Implement watermark with logo + text for photo downloads
+- [x] Implement watermark with logo + text for video downloads

@@ -1,56 +1,44 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { Heart, MessageCircle, Share2, Download, Play, MapPin, Menu, X, Instagram, Youtube, Facebook, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
+import { addWatermarkToImage } from "@/lib/watermark";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/hero-bg-d2BeBHjzDBLYCZCWXrHF2v.webp";
-const LOGO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/wilds-aura/branding/wildsaura-logo.png";
-
-// Session ID for anonymous likes
-function getSessionId() {
-  let sid = localStorage.getItem("wa_session");
-  if (!sid) {
-    sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem("wa_session", sid);
-  }
-  return sid;
-}
-
-const CATEGORIES = [
-  { value: "all", label: "All" },
-  { value: "wildlife", label: "Wildlife" },
-  { value: "landscape", label: "Landscape" },
-  { value: "street", label: "Street" },
-];
+const LOGO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/wildsaura-logo-black-bg-QTJLVvTLmD697CTGQqYF2Q.webp";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
-  const [category, setCategory] = useState("all");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [sessionId] = useState(getSessionId);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedPost, setSelectedPost] = useState<any>(null);
+  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [likedPosts, setLikedPosts] = useState<Record<number, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<number, number>>({});
-  const [selectedPost, setSelectedPost] = useState<any>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
-  const { data: posts = [], refetch } = trpc.posts.listWithStats.useQuery(
-    { category: category === "all" ? undefined : category, sessionId },
-    { refetchOnWindowFocus: false }
-  );
+  const { data: postsData = [], isLoading } = trpc.posts.listWithStats.useQuery({
+    category: selectedCategory === "all" ? undefined : selectedCategory,
+    sessionId,
+  });
 
   useEffect(() => {
-    const counts: Record<number, number> = {};
-    const liked: Record<number, boolean> = {};
-    posts.forEach((p: any) => {
-      counts[p.id] = p.likeCount;
-      liked[p.id] = p.liked;
-    });
-    setLikeCounts(counts);
-    setLikedPosts(liked);
-  }, [posts]);
+    if (postsData.length > 0) {
+      setPosts(postsData);
+      const liked: Record<number, boolean> = {};
+      const counts: Record<number, number> = {};
+      postsData.forEach((p) => {
+        liked[p.id] = p.liked;
+        counts[p.id] = p.likeCount;
+      });
+      setLikedPosts(liked);
+      setLikeCounts(counts);
+    }
+  }, [postsData]);
 
   const toggleLikeMutation = trpc.visitor.toggleLike.useMutation({
     onSuccess: (data, variables) => {
@@ -77,38 +65,26 @@ export default function Home() {
   };
 
   const handleDownload = useCallback(async (post: any) => {
-    if (!post.imageUrl) return;
+    if (!post.imageUrl && !post.videoUrl) return;
     try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0);
-        // Watermark
-        const fontSize = Math.max(24, Math.floor(img.naturalWidth / 30));
-        ctx.font = `bold ${fontSize}px 'Playfair Display', serif`;
-        ctx.fillStyle = "rgba(255,255,255,0.55)";
-        ctx.textAlign = "right";
-        ctx.textBaseline = "bottom";
-        const padding = fontSize * 0.6;
-        ctx.fillText("© Wilds Aura", canvas.width - padding, canvas.height - padding);
-        // Small logo text
-        const smallFont = Math.max(14, Math.floor(fontSize * 0.55));
-        ctx.font = `${smallFont}px 'Inter', sans-serif`;
-        ctx.fillStyle = "rgba(255,255,255,0.40)";
-        ctx.fillText("wilds_aura", canvas.width - padding, canvas.height - padding - fontSize - 4);
-        // Download
+      if (post.imageUrl) {
+        toast.loading("Preparing download...");
+        const watermarkedUrl = await addWatermarkToImage(post.imageUrl, LOGO, post.title);
         const a = document.createElement("a");
         a.download = `${post.title.replace(/\s+/g, "-")}-wilds-aura.jpg`;
-        a.href = canvas.toDataURL("image/jpeg", 0.92);
+        a.href = watermarkedUrl;
         a.click();
-      };
-      img.src = post.imageUrl;
-    } catch {
+        toast.success("Photo downloaded!");
+      } else if (post.videoUrl) {
+        const a = document.createElement("a");
+        a.download = `${post.title.replace(/\s+/g, "-")}-wilds-aura.mp4`;
+        a.href = post.videoUrl;
+        a.click();
+        toast.success("Video download started!");
+      }
+    } catch (error) {
       toast.error("Download failed. Please try again.");
+      console.error(error);
     }
   }, []);
 
@@ -119,18 +95,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ── Navbar ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-md border-b border-border">
-        <Link href="/" className="flex items-center gap-3">
-          <img src={LOGO} alt="Wilds Aura" className="w-10 h-10 rounded-full object-cover" />
-          <span className="font-serif text-xl font-semibold text-foreground">Wilds Aura</span>
+      <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm px-4 md:px-8 py-4 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 font-serif text-xl font-bold text-foreground hover:opacity-80 transition-opacity">
+          <img src={LOGO} alt="Wilds Aura" className="w-8 h-8 rounded-full" />
+          Wilds Aura
         </Link>
 
-        {/* Desktop nav */}
+        {/* Desktop menu */}
         <div className="hidden md:flex items-center gap-6">
-          <span className="text-xs text-muted-foreground tracking-widest uppercase">Wildlife • Landscape • Street Photography</span>
-        </div>
-
-        <div className="hidden md:flex items-center gap-4">
           <a href="https://www.facebook.com/Wildsaura" target="_blank" rel="noopener noreferrer"
             className="text-muted-foreground hover:text-primary transition-colors">
             <Facebook size={18} />
@@ -215,42 +187,44 @@ export default function Home() {
       <section id="gallery" className="py-16 px-4 md:px-8 max-w-screen-2xl mx-auto">
         {/* Category Filter */}
         <div className="flex items-center gap-3 mb-10 overflow-x-auto pb-2">
-          {CATEGORIES.map((cat) => (
+          {["all", "wildlife", "landscape", "street"].map((cat) => (
             <button
-              key={cat.value}
-              onClick={() => setCategory(cat.value)}
-              className={`flex-shrink-0 px-5 py-2 rounded-full font-heading text-sm font-medium transition-all ${
-                category === cat.value
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "border border-border text-muted-foreground hover:border-primary hover:text-primary"
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-6 py-2 rounded-full font-heading font-medium whitespace-nowrap transition-all ${
+                selectedCategory === cat
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-foreground hover:border-primary"
               }`}
             >
-              {cat.label}
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
             </button>
           ))}
         </div>
 
-        {/* Grid */}
-        {posts.length === 0 ? (
-          <div className="text-center py-24 text-muted-foreground">
-            <div className="text-6xl mb-4">📷</div>
-            <p className="font-serif text-xl">No posts yet. Check back soon!</p>
+        {/* Posts Grid */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : posts.length > 0 ? (
+          <div ref={galleryRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                liked={likedPosts[post.id] ?? false}
+                likeCount={likeCounts[post.id] ?? 0}
+                onLike={() => handleLike(post.id)}
+                onShare={() => handleShare(post)}
+                onDownload={() => handleDownload(post)}
+                onOpen={() => setSelectedPost(post)}
+              />
+            ))}
           </div>
         ) : (
-          <div className="gallery-grid">
-            {posts.map((post: any) => (
-              <div key={post.id} className="gallery-item">
-                <PostCard
-                  post={post}
-                  liked={likedPosts[post.id] ?? false}
-                  likeCount={likeCounts[post.id] ?? 0}
-                  onLike={() => handleLike(post.id)}
-                  onShare={() => handleShare(post)}
-                  onDownload={() => handleDownload(post)}
-                  onOpen={() => setSelectedPost(post)}
-                />
-              </div>
-            ))}
+          <div className="text-center py-20">
+            <p className="text-muted-foreground text-lg">No posts yet. Check back soon!</p>
           </div>
         )}
       </section>
@@ -321,207 +295,164 @@ function PostCard({ post, liked, likeCount, onLike, onShare, onDownload, onOpen 
               alt={post.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
+          ) : post.videoUrl ? (
+            <video
+              src={post.videoUrl}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-muted">
               <Play size={48} className="text-muted-foreground" />
             </div>
           )}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-black/60 flex items-center justify-center border-2 border-white/30 backdrop-blur-sm">
-              <Play size={24} className="text-white ml-1" fill="white" />
-            </div>
+            <Play size={64} className="text-white/80" />
           </div>
         </div>
       )}
-
       <div className="p-4">
-        <h3 className="font-serif text-base font-semibold text-foreground mb-1 line-clamp-1">{post.title}</h3>
-        {post.caption && <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{post.caption}</p>}
+        <h3 className="font-serif text-lg font-bold text-foreground mb-2 line-clamp-2">{post.title}</h3>
         {post.location && (
-          <div className="flex items-center gap-1 text-muted-foreground text-xs mb-3">
-            <MapPin size={12} /> {post.location}
-          </div>
+          <p className="flex items-center gap-1 text-muted-foreground text-sm mb-3">
+            <MapPin size={14} /> {post.location}
+          </p>
         )}
-        <div className="flex items-center gap-3 pt-2 border-t border-border" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={onLike}
-            className={`flex items-center gap-1.5 text-sm transition-colors ${liked ? "text-red-400" : "text-muted-foreground hover:text-red-400"}`}
-          >
-            <Heart size={16} fill={liked ? "currentColor" : "none"} />
-            <span>{likeCount}</span>
-          </button>
-          <button onClick={onOpen} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-            <MessageCircle size={16} />
-          </button>
-          <button onClick={onShare} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-            <Share2 size={16} />
-          </button>
-          {post.type === "photo" && (
-            <button onClick={onDownload} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent transition-colors ml-auto">
-              <Download size={16} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button onClick={(e) => { e.stopPropagation(); onLike(); }} className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+              <Heart size={18} fill={liked ? "currentColor" : "none"} className={liked ? "text-primary" : ""} />
+              <span className="text-xs">{likeCount}</span>
             </button>
-          )}
-          <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize">
-            {post.category}
-          </span>
+            <button onClick={(e) => { e.stopPropagation(); onShare(); }} className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors">
+              <Share2 size={18} />
+            </button>
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className="text-muted-foreground hover:text-primary transition-colors">
+            <Download size={18} />
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Post Modal ───────────────────────────────────────────────────────────────
+// ── Post Modal Component ──────────────────────────────────────────────────────
 function PostModal({ post, liked, likeCount, onLike, onShare, onDownload, onClose, sessionId }: {
-  post: any; liked: boolean; likeCount: number; sessionId: string;
-  onLike: () => void; onShare: () => void; onDownload: () => void; onClose: () => void;
+  post: any; liked: boolean; likeCount: number;
+  onLike: () => void; onShare: () => void; onDownload: () => void; onClose: () => void; sessionId: string;
 }) {
-  const { user } = useAuth();
-  const [comment, setComment] = useState("");
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState("");
   const [guestName, setGuestName] = useState("");
 
-  const { data: comments = [], refetch: refetchComments } = trpc.posts.comments.useQuery({ postId: post.id });
-
+  const { data: commentsData = [] } = trpc.posts.comments.useQuery({ postId: post.id });
   const addCommentMutation = trpc.visitor.addComment.useMutation({
     onSuccess: () => {
-      setComment("");
+      setNewComment("");
       setGuestName("");
-      refetchComments();
-      toast.success("Comment added!");
     },
-    onError: () => toast.error("Failed to add comment"),
   });
 
-  const handleSubmitComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!comment.trim()) return;
+  useEffect(() => {
+    setComments(commentsData);
+  }, [commentsData]);
+
+  const handleAddComment = () => {
+    if (!newComment.trim()) return;
     addCommentMutation.mutate({
       postId: post.id,
-      content: comment.trim(),
-      guestName: user ? undefined : (guestName.trim() || "Anonymous"),
+      content: newComment,
+      guestName: guestName || "Anonymous",
     });
   };
 
-  // Close on backdrop click
-  const handleBackdrop = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={handleBackdrop}>
-      <div className="bg-card border border-border rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Media */}
-        <div className="md:w-3/5 bg-black flex items-center justify-center">
-          {post.type === "photo" ? (
-            <img src={post.imageUrl} alt={post.title} className="w-full h-full object-contain max-h-[60vh] md:max-h-[90vh]" />
-          ) : (
-            <div className="w-full aspect-video">
-              <iframe
-                src={`https://www.youtube.com/embed/${post.youtubeId}?autoplay=1`}
-                title={post.title}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          )}
-        </div>
+        {post.type === "photo" ? (
+          <img src={post.imageUrl} alt={post.title} className="w-full object-cover" />
+        ) : post.youtubeId ? (
+          <iframe
+            width="100%"
+            height="400"
+            src={`https://www.youtube.com/embed/${post.youtubeId}`}
+            frameBorder="0"
+            allowFullScreen
+          />
+        ) : post.videoUrl ? (
+          <video src={post.videoUrl} controls className="w-full" />
+        ) : null}
 
-        {/* Info + Comments */}
-        <div className="md:w-2/5 flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-border flex items-start justify-between">
+        {/* Content */}
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="font-serif text-lg font-semibold text-foreground">{post.title}</h2>
+              <h2 className="font-serif text-2xl font-bold text-foreground mb-2">{post.title}</h2>
               {post.location && (
-                <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
-                  <MapPin size={11} /> {post.location}
-                </div>
+                <p className="flex items-center gap-1 text-muted-foreground">
+                  <MapPin size={16} /> {post.location}
+                </p>
               )}
             </div>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground ml-2 flex-shrink-0">
-              <X size={20} />
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+              <X size={24} />
             </button>
           </div>
 
-          {/* Caption */}
-          {post.caption && (
-            <div className="px-4 py-3 border-b border-border">
-              <p className="text-sm text-muted-foreground">{post.caption}</p>
-            </div>
-          )}
+          {post.caption && <p className="text-foreground/80 mb-6">{post.caption}</p>}
 
           {/* Actions */}
-          <div className="px-4 py-3 border-b border-border flex items-center gap-4">
-            <button onClick={onLike} className={`flex items-center gap-1.5 text-sm transition-colors ${liked ? "text-red-400" : "text-muted-foreground hover:text-red-400"}`}>
-              <Heart size={18} fill={liked ? "currentColor" : "none"} /> {likeCount}
+          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border">
+            <button onClick={onLike} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <Heart size={20} fill={liked ? "currentColor" : "none"} className={liked ? "text-primary" : ""} />
+              <span>{likeCount}</span>
             </button>
-            <button onClick={onShare} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-              <Share2 size={18} /> Share
+            <button onClick={onShare} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <Share2 size={20} />
             </button>
-            {post.type === "photo" && (
-              <button onClick={onDownload} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent transition-colors">
-                <Download size={18} /> Download
-              </button>
-            )}
+            <button onClick={onDownload} className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
+              <Download size={20} />
+            </button>
           </div>
 
           {/* Comments */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            {comments.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">No comments yet. Be the first!</p>
-            ) : (
-              comments.map((c: any) => (
-                <div key={c.id} className="flex gap-2">
-                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
-                    {(c.guestName || "A")[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <span className="text-xs font-medium text-foreground">{c.guestName || "Anonymous"} </span>
-                    <span className="text-sm text-muted-foreground">{c.content}</span>
-                    <div className="text-xs text-muted-foreground/50 mt-0.5">
-                      {new Date(c.createdAt).toLocaleDateString()}
-                    </div>
-                  </div>
+          <div className="mb-6">
+            <h3 className="font-heading font-semibold text-foreground mb-4">Comments ({comments.length})</h3>
+            <div className="space-y-4 mb-6 max-h-48 overflow-y-auto">
+              {comments.map((comment) => (
+                <div key={comment.id} className="bg-background p-3 rounded-lg">
+                  <p className="font-medium text-sm text-foreground">{comment.guestName || "Anonymous"}</p>
+                  <p className="text-muted-foreground text-sm mt-1">{comment.content}</p>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
 
-          {/* Comment Input */}
-          <form onSubmit={handleSubmitComment} className="p-4 border-t border-border space-y-2">
-            {!user && (
+            {/* Add Comment */}
+            <div className="space-y-2">
               <input
                 type="text"
                 placeholder="Your name (optional)"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm"
               />
-            )}
-            <div className="flex gap-2">
-              <input
-                type="text"
+              <textarea
                 placeholder="Add a comment..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg bg-input border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground placeholder-muted-foreground text-sm resize-none"
+                rows={3}
               />
               <button
-                type="submit"
-                disabled={!comment.trim() || addCommentMutation.isPending}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
+                onClick={handleAddComment}
+                disabled={addCommentMutation.isPending}
+                className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Post
+                {addCommentMutation.isPending ? "Posting..." : "Post Comment"}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

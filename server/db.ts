@@ -124,6 +124,8 @@ export async function createPost(data: {
   imageKey?: string;
   youtubeUrl?: string;
   youtubeId?: string;
+  videoUrl?: string;
+  videoKey?: string;
   location?: string;
 }) {
   const db = await getDb();
@@ -140,6 +142,8 @@ export async function updatePost(id: number, data: Partial<{
   imageKey: string;
   youtubeUrl: string;
   youtubeId: string;
+  videoUrl: string;
+  videoKey: string;
   location: string;
   published: boolean;
 }>) {

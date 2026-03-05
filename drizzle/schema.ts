@@ -36,6 +36,8 @@ export const posts = mysqlTable("posts", {
   imageKey: text("imageKey"),
   youtubeUrl: text("youtubeUrl"),
   youtubeId: varchar("youtubeId", { length: 32 }),
+  videoUrl: text("videoUrl"),
+  videoKey: text("videoKey"),
   location: varchar("location", { length: 255 }),
   published: boolean("published").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

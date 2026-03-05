@@ -144,6 +144,32 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    createVideoFilePost: adminProcedure
+      .input(z.object({
+        title: z.string().min(1).max(255),
+        caption: z.string().optional(),
+        category: z.enum(["wildlife", "landscape", "street", "other"]),
+        location: z.string().optional(),
+        videoData: z.string(),
+        videoMime: z.string().default("video/mp4"),
+        videoFileName: z.string().default("video.mp4"),
+      }))
+      .mutation(async ({ input }) => {
+        const buffer = Buffer.from(input.videoData, "base64");
+        const key = `wilds-aura/videos/${Date.now()}-${input.videoFileName}`;
+        const { url } = await storagePut(key, buffer, input.videoMime);
+        await createPost({
+          type: "video",
+          title: input.title,
+          caption: input.caption,
+          category: input.category,
+          videoUrl: url,
+          videoKey: key,
+          location: input.location,
+        });
+        return { success: true, url };
+      }),
+
     updatePost: adminProcedure
       .input(z.object({
         id: z.number(),
