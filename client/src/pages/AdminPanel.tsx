@@ -4,10 +4,10 @@ import { useState, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft, Plus, Trash2, Edit3, Eye, EyeOff, Image, Youtube,
-  Upload, X, Check, MapPin, AlertCircle, LogIn
+  Upload, X, Check, MapPin, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
-import { getLoginUrl } from "@/const";
+
 
 type Category = "wildlife" | "landscape" | "street" | "other";
 type PostType = "photo" | "video";
@@ -33,28 +33,13 @@ export default function AdminPanel() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle size={48} className="text-muted-foreground mx-auto mb-4" />
-          <h2 className="font-serif text-2xl text-foreground mb-2">Login Required</h2>
-          <p className="text-muted-foreground mb-6">Please login to access the admin panel.</p>
-          <a href={getLoginUrl()} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors">
-            <LogIn size={18} /> Login
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  if (user?.role !== "admin") {
+  if (!isAuthenticated || user?.role !== "admin") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <AlertCircle size={48} className="text-destructive mx-auto mb-4" />
           <h2 className="font-serif text-2xl text-foreground mb-2">Access Denied</h2>
-          <p className="text-muted-foreground mb-6">You don't have admin privileges.</p>
+          <p className="text-muted-foreground mb-6">This area is restricted to the site owner only.</p>
           <Link href="/" className="text-primary hover:underline">← Back to Gallery</Link>
         </div>
       </div>

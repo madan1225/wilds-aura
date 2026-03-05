@@ -143,18 +143,11 @@ export default function Home() {
             className="text-muted-foreground hover:text-[#ff0000] transition-colors">
             <Youtube size={18} />
           </a>
-          {isAuthenticated ? (
-            user?.role === "admin" ? (
-              <Link href="/admin"
-                className="px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-sm font-heading font-medium hover:bg-primary/90 transition-colors">
-                Admin
-              </Link>
-            ) : null
-          ) : (
-            <a href={getLoginUrl()}
-              className="px-4 py-1.5 rounded-full border border-primary text-primary text-sm font-heading font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
-              Login
-            </a>
+          {user?.role === "admin" && (
+            <Link href="/admin"
+              className="px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-sm font-heading font-medium hover:bg-primary/90 transition-colors">
+              Admin
+            </Link>
           )}
         </div>
 
@@ -173,12 +166,6 @@ export default function Home() {
             <a href="https://www.instagram.com/wilds_aura" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Instagram size={24} /></a>
             <a href="https://www.youtube.com/@NatureFrame_com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#ff0000]"><Youtube size={24} /></a>
           </div>
-          {!isAuthenticated && (
-            <a href={getLoginUrl()} onClick={() => setMenuOpen(false)}
-              className="px-6 py-2 rounded-full border border-primary text-primary font-heading font-medium">
-              Login
-            </a>
-          )}
           {user?.role === "admin" && (
             <Link href="/admin" onClick={() => setMenuOpen(false)}
               className="px-6 py-2 rounded-full bg-primary text-primary-foreground font-heading font-medium">

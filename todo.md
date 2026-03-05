@@ -51,3 +51,7 @@
 ## Updates
 - [x] Replace AI logo with user's actual Wildsaura Photography golden logo
 - [x] Fix admin panel access — make admin button visible and accessible
+- [x] Remove Login button from navbar (visitors should not login)
+- [x] Hide Admin button — only show for owner
+- [x] Lock /admin route to owner only (server-side check with OWNER_OPEN_ID)
+- [x] Remove login redirect from admin panel — show "Access Denied" instead
