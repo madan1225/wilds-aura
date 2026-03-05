@@ -47,3 +47,7 @@
 - [x] / → Home (gallery)
 - [x] /post/:id → Post detail page
 - [x] /admin → Admin panel
+
+## Updates
+- [x] Replace AI logo with user's actual Wildsaura Photography golden logo
+- [x] Fix admin panel access — make admin button visible and accessible

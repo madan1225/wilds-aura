@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
 
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/hero-bg-d2BeBHjzDBLYCZCWXrHF2v.webp";
-const LOGO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/logo-wa-2TNZGRVrSicunE5YWCchM8.webp";
+const LOGO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663405254145/XVj2P2ZP8typMp4sb8ShKr/wilds-aura/branding/wildsaura-logo.png";
 
 // Session ID for anonymous likes
 function getSessionId() {
@@ -150,7 +150,12 @@ export default function Home() {
                 Admin
               </Link>
             ) : null
-          ) : null}
+          ) : (
+            <a href={getLoginUrl()}
+              className="px-4 py-1.5 rounded-full border border-primary text-primary text-sm font-heading font-medium hover:bg-primary hover:text-primary-foreground transition-colors">
+              Login
+            </a>
+          )}
         </div>
 
         {/* Mobile menu toggle */}
@@ -168,6 +173,12 @@ export default function Home() {
             <a href="https://www.instagram.com/wilds_aura" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Instagram size={24} /></a>
             <a href="https://www.youtube.com/@NatureFrame_com" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-[#ff0000]"><Youtube size={24} /></a>
           </div>
+          {!isAuthenticated && (
+            <a href={getLoginUrl()} onClick={() => setMenuOpen(false)}
+              className="px-6 py-2 rounded-full border border-primary text-primary font-heading font-medium">
+              Login
+            </a>
+          )}
           {user?.role === "admin" && (
             <Link href="/admin" onClick={() => setMenuOpen(false)}
               className="px-6 py-2 rounded-full bg-primary text-primary-foreground font-heading font-medium">

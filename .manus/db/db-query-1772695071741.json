@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE users SET role = 'admin' WHERE openId = (SELECT COALESCE((SELECT openId FROM users LIMIT 1), 'none'));",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 443Xkv4jKo37NW6.root --database XVj2P2ZP8typMp4sb8ShKr --execute UPDATE users SET role = 'admin' WHERE openId = (SELECT COALESCE((SELECT openId FROM users LIMIT 1), 'none'));",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1691
+}
