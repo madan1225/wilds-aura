@@ -62,3 +62,14 @@
 - [x] Add video storage and serving
 - [x] Implement watermark with logo + text for photo downloads
 - [x] Implement watermark with logo + text for video downloads
+
+
+## Railway Deployment Issues
+- [x] Fix "Invalid URL" error on Railway — check environment variables
+
+## Render Deployment
+- [ ] Deploy to Render with Publish Directory: dist/public
+- [ ] Setup PostgreSQL database
+- [ ] Run database migrations
+- [ ] Test app on Render
+- [ ] Setup custom domain (optional)
